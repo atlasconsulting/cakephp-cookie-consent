@@ -1,5 +1,5 @@
 {
-    "name": "atlas/cookie-consent",
+    "name": "atlasconsulting/cakephp-cookie-consent",
     "description": "CookieConsent plugin for CakePHP",
     "type": "cakephp-plugin",
     "license": "MIT",
