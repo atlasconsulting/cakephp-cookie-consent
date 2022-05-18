@@ -1,0 +1,36 @@
+# User specific & automatically generated files #
+#################################################
+/.vagrant/*
+/composer.lock
+/tests/.env
+/tests/files/api.log
+/coverage/*
+/index.html
+/phpunit.xml
+/provision/*
+/vendor
+/phpstan.neon
+.phpunit.result.cache
+
+# IDE and editor specific files #
+#################################
+/nbproject
+/tags
+.idea
+.project
+.buildpath
+.settings
+.vscode
+.history
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.directory
+Icon?
+ehthumbs.db
+Thumbs.db
