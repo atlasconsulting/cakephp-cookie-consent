@@ -1,0 +1,229 @@
+name: 'php'
+
+on:
+  pull_request:
+    paths:
+      - '**/*.php'
+      - '.github/workflows/*'
+      - 'composer.json'
+  push:
+    paths:
+      - '**/*.php'
+      - '.github/workflows/*'
+      - 'composer.json'
+
+jobs:
+  cs:
+    name: 'Check coding style'
+    runs-on: 'ubuntu-20.04'
+
+    steps:
+      - name: 'Checkout current revision'
+        uses: 'actions/checkout@v2'
+
+      - name: 'Setup PHP'
+        uses: 'shivammathur/setup-php@v2'
+        with:
+          php-version: '7.4'
+          tools: 'composer'
+          extensions: 'mbstring, intl'
+          coverage: 'none'
+
+      - name: 'Discover Composer cache directory'
+        id: 'cachedir'
+        run: 'echo "::set-output name=path::$(composer global config cache-dir)"'
+
+      - name: 'Share Composer cache across runs'
+        uses: 'actions/cache@v2'
+        with:
+          path: '${{ steps.cachedir.outputs.path }}'
+          key: "composer-${{ github.job }}-${{ hashFiles('**/composer.json') }}"
+          restore-keys: |
+            composer-${{ github.job }}-
+            composer-
+
+      - name: 'Install dependencies with Composer'
+        run: 'composer install --prefer-dist --no-interaction'
+
+      - name: 'Run PHP CodeSniffer'
+        run: |
+          vendor/bin/phpcs -n -p --extensions=php \
+            --standard=vendor/cakephp/cakephp-codesniffer/CakePHP \
+            ./config ./src ./tests
+
+  stan:
+    name: 'Static code analyzer'
+    if: "!contains(github.event.commits[0].message, '[skip ci]') && !contains(github.event.commits[0].message, '[ci skip]')"
+    runs-on: 'ubuntu-20.04'
+    continue-on-error: true
+
+    steps:
+      - name: 'Checkout current revision'
+        uses: 'actions/checkout@v2'
+
+      - name: 'Setup PHP'
+        uses: 'shivammathur/setup-php@v2'
+        with:
+          php-version: '7.4'
+          tools: 'composer'
+          extensions: 'mbstring, intl'
+          coverage: 'none'
+
+      - name: 'Discover Composer cache directory'
+        id: 'cachedir'
+        run: 'echo "::set-output name=path::$(composer global config cache-dir)"'
+
+      - name: 'Share Composer cache across runs'
+        uses: 'actions/cache@v2'
+        with:
+          path: '${{ steps.cachedir.outputs.path }}'
+          key: "composer-${{ github.job }}-${{ hashFiles('**/composer.json') }}"
+          restore-keys: |
+            composer-${{ github.job }}-
+            composer-
+
+      - name: 'Install dependencies with Composer'
+        run: 'composer install --prefer-dist --no-interaction'
+
+      - name: 'Run PHP STAN'
+        run: 'vendor/bin/phpstan analyse --no-progress --error-format=github'
+
+  undeclared-dependencies:
+    name: 'Check missing dependencies'
+    runs-on: 'ubuntu-20.04'
+
+    steps:
+      - name: 'Checkout current revision'
+        uses: 'actions/checkout@v2'
+
+      - name: 'Setup PHP'
+        uses: 'shivammathur/setup-php@v2'
+        with:
+          php-version: '7.4'
+          tools: 'composer, composer-require-checker'
+          extensions: 'mbstring, intl'
+          coverage: 'none'
+
+      - name: 'Discover Composer cache directory'
+        id: 'cachedir'
+        run: 'echo "::set-output name=path::$(composer global config cache-dir)"'
+
+      - name: 'Share Composer cache across runs'
+        uses: 'actions/cache@v2'
+        with:
+          path: '${{ steps.cachedir.outputs.path }}'
+          key: "composer-${{ github.job }}-${{ hashFiles('**/composer.json') }}"
+          restore-keys: |
+            composer-${{ github.job }}-
+            composer-
+
+      - name: 'Install dependencies with Composer'
+        run: 'composer install --prefer-dist --no-interaction'
+
+      - name: 'Run ComposerRequireChecker'
+        run: 'composer-require-checker check'
+
+  unit:
+    name: 'Run unit tests'
+    if: "!contains(github.event.commits[0].message, '[skip ci]') && !contains(github.event.commits[0].message, '[ci skip]')"
+    runs-on: 'ubuntu-20.04'
+
+    strategy:
+      matrix:
+        php-version: [7.4, 8.0, 8.1]
+
+    steps:
+      - name: 'Checkout current revision'
+        uses: 'actions/checkout@v2'
+
+      - name: 'Install GNU gettext'
+        run: 'sudo apt-get install -y gettext'
+
+      - name: 'Composer config GH token if available'
+        run: 'if [ -n "$GH_TOKEN" ]; then composer config github-oauth.github.com ${GH_TOKEN}; fi'
+
+      - name: 'Setup PHP'
+        uses: 'shivammathur/setup-php@v2'
+        with:
+          php-version: '${{ matrix.php-version }}'
+          tools: 'composer'
+          extensions: 'mbstring, intl'
+
+      - name: 'Discover Composer cache directory'
+        id: 'cachedir'
+        run: 'echo "::set-output name=path::$(composer global config cache-dir)"'
+
+      - name: 'Share Composer cache across runs'
+        uses: 'actions/cache@v2'
+        with:
+          path: '${{ steps.cachedir.outputs.path }}'
+          key: "composer-${{ matrix.php-version }}-${{ hashFiles('**/composer.json') }}"
+          restore-keys: |
+            composer-${{ matrix.php-version }}-
+            composer-
+
+      - name: 'Install dependencies with Composer'
+        run: 'composer install --prefer-dist --no-interaction'
+
+      - name: 'Run PHPUnit with coverage'
+        run: 'vendor/bin/phpunit --coverage-clover=clover.xml'
+
+      - name: Check test coverage
+        id: test-coverage
+        uses: johanvanhelden/gha-clover-test-coverage-check@v1
+        with:
+          percentage: '85'
+          filename: 'clover.xml'
+
+      - name: 'Export coverage results'
+        uses: 'codecov/codecov-action@v1'
+        with:
+          file: './clover.xml'
+          env_vars: PHP_VERSION
+
+      - name: 'Archive code coverage results'
+        uses: 'actions/upload-artifact@v2'
+        with:
+          name: 'PHP ${{ matrix.php }}'
+          path: 'clover.xml'
+
+  unit-lowest:
+    name: 'Run unit tests with lowest-matching dependencies versions'
+    if: "!contains(github.event.commits[0].message, '[skip ci]') && !contains(github.event.commits[0].message, '[ci skip]')"
+    runs-on: 'ubuntu-20.04'
+
+    steps:
+      - name: 'Checkout current revision'
+        uses: 'actions/checkout@v2'
+
+      - name: 'Install GNU gettext'
+        run: 'sudo apt-get install -y gettext'
+
+      - name: 'Composer config GH token if available'
+        run: 'if [ -n "$GH_TOKEN" ]; then composer config github-oauth.github.com ${GH_TOKEN}; fi'
+
+      - name: 'Setup PHP'
+        uses: 'shivammathur/setup-php@v2'
+        with:
+          php-version: '7.4'
+          tools: 'composer'
+          extensions: 'mbstring, intl, pdo_sqlite'
+
+      - name: 'Discover Composer cache directory'
+        id: 'cachedir'
+        run: 'echo "::set-output name=path::$(composer global config cache-dir)"'
+
+      - name: 'Share Composer cache across runs'
+        uses: 'actions/cache@v2'
+        with:
+          path: '${{ steps.cachedir.outputs.path }}'
+          key: "composer-lowest-${{ hashFiles('**/composer.json') }}"
+          restore-keys: |
+            composer-lowest-
+            composer-
+
+      - name: 'Install dependencies with Composer'
+        run: 'composer update --prefer-lowest --prefer-dist --no-interaction'
+
+      - name: 'Run PHPUnit'
+        run: 'vendor/bin/phpunit'
