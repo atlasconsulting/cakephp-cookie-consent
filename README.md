@@ -46,13 +46,19 @@ public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
 
 The middleware is configurable with:
 
-'cookieName' => 'cc_cookie',
-        'searchIn' => 'level',
-        'remove' => [
-            'preferences' => [],
-            'analytics' => [],
-            'targeting' => [],
-        ],
+```php
+[
+    'cookieName' => 'cc_cookie',
+    'searchIn' => 'level',
+    'remove' => [
+        'preferences' => [],
+        'analytics' => [],
+        'targeting' => [],
+    ],
+]
+```
+
+where
 
 * `cookieName` (default `cc_cookie`), the cookie consent to analyze
 * `searchIn` (default `level`), the key to look for in the json string value of cookie.
